@@ -4,18 +4,18 @@
 
 #include "Robot.h"
 
-Robot::Robot(int id, int midiChannel, const String &host, int port, const String &name) : m_node(String(id)) {
-    m_node.setProperty(Id, id, nullptr);
-    m_node.setProperty(MidiChannel, midiChannel, nullptr);
-    m_node.setProperty(Host, host, nullptr);
-    m_node.setProperty(Port, port, nullptr);
-    m_node.setProperty(Name, name, nullptr);
+Robot::Robot(int id, const ValueTree& data) : m_node(data) {
+    setName(data.getType().toString());
+    setId(id);
+    setHost(DEFAULT_HOST);
+    setPort(DEFAULT_PORT);
+    setEnabled(false);
     m_node.setProperty(ConnectionStatus, false, nullptr);
-    m_node.setProperty(Enabled, false, nullptr);
+    disconnect();
 }
 
 Robot::~Robot() {
-
+    disconnect();
 }
 
 int Robot::connect() {
@@ -46,7 +46,28 @@ int Robot::disconnect() {
 }
 
 void Robot::send(const MidiMessage &msg) {
+    if (!m_node[ConnectionStatus])
+        return;
 
+    using namespace AddrPattern;
+    if (msg.getChannel() != (int)m_node[MidiChannel]) {
+        DBG("Warning: Midi Channel of msg is different from the robot's channel");
+        return;
+    }
+
+    if (msg.isNoteOn()) {
+        m_sender.send(noteOn, msg.getNoteNumber());
+        m_sender.send(velocity, msg.getVelocity());
+        DBG("Note: " << msg.getDescription());
+    } else if (msg.isNoteOff()) {
+        m_sender.send(noteOff, msg.getNoteNumber());
+    } else if (msg.isChannelPressure()) {
+        m_sender.send(pressure, msg.getChannelPressureValue());
+    } else if (msg.isAftertouch()) {
+        m_sender.send(touch, msg.getAfterTouchValue());
+    } else {
+        DBG("Unknown msg: " << msg.getDescription());
+    }
 }
 
 void Robot::toggleConnection() {
@@ -57,26 +78,48 @@ void Robot::toggleConnection() {
 }
 
 /******************************************* Robots *******************************************/
-Robots::Robots() {
+Robots::Robots(const ValueTree& data) : m_rootData(data) {
 }
 
 Robots::~Robots() {
-
 }
 
 void Robots::addRobots() {
-    for (int id=0; id<kRobotList.size(); ++id) {
-        auto robot = std::make_shared<Robot>(id, 0, DEFAULT_HOST, DEFAULT_PORT, kRobotList[id]);
-        robot->disconnect();
-        rootData.addChild(robot->m_node, id, nullptr);
-        m_robots[(size_t)id] = robot;
+    for (size_t id = 0; id < MAX_ROBOTS; ++id) {
+        auto child = m_rootData.getChild((int)id);
+        addRobot((int)id, child);
     }
 }
 
 void Robots::removeRobots() {
-    for (int id=0; id<kRobotList.size(); ++id) {
-        rootData.removeChild(id, nullptr);
-        auto robot = m_robots[(size_t)id];
-        robot.reset();
+    for (size_t id=0; id<MAX_ROBOTS; ++id) {
+        removeRobot(id);
+    }
+}
+
+void Robots::addRobot(int id, const ValueTree& node) {
+    auto robot = std::make_shared<Robot>(id, node);
+    m_robots[(size_t)id] = robot;
+}
+
+void Robots::removeRobot(size_t id) {
+    m_robots[id]->disconnect();
+    m_robots[id] = nullptr;
+}
+
+void Robots::disconnectAll() {
+    for (const auto& robot: m_robots) {
+        robot->disconnect();
+    }
+}
+
+void Robots::send(const MidiMessage &msg) {
+    auto ch = (size_t)msg.getChannel();
+    auto id = m_chMap[ch];
+    if (id < MAX_ROBOTS) {
+        auto robot = m_robots[id];
+        if (robot->isEnabled()) {
+            robot->send(msg);
+        }
     }
 }

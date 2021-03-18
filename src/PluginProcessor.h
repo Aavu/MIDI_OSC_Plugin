@@ -7,7 +7,7 @@
 #include "Robot.h"
 
 //==============================================================================
-class AudioPluginAudioProcessor  : public juce::AudioProcessor
+class AudioPluginAudioProcessor  : public juce::AudioProcessor, public juce::MidiInputCallback
 {
 public:
     //==============================================================================
@@ -46,8 +46,6 @@ public:
     void getStateInformation (juce::MemoryBlock& destData) override;
     void setStateInformation (const void* data, int sizeInBytes) override;
 
-    Robots& getRobots() { return m_robots; }
-
     const std::array<bool, MAX_MIDI_CHANNELS>& getEnabledChannels() const { return m_enabledChannels; }
     void updateChannelStatus();
     void enableChannel(int ch, bool enable);
@@ -55,8 +53,14 @@ public:
 
 private:
     //==============================================================================
+    ValueTree m_data;
     Robots m_robots;
     std::array<bool, MAX_MIDI_CHANNELS> m_enabledChannels;
+
+    std::unique_ptr<MidiInput> m_midiInput;
+
+    void initData();
+    void handleIncomingMidiMessage (MidiInput* source, const MidiMessage& message) override;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (AudioPluginAudioProcessor)
 };

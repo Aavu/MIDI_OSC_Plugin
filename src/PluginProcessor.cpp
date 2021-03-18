@@ -13,15 +13,30 @@ AudioPluginAudioProcessor::AudioPluginAudioProcessor()
 #endif
                                   .withOutput ("Output", juce::AudioChannelSet::stereo(), true)
 #endif
-)
+), m_data("MidiOscPlugin"), m_robots(m_data)
 {
-    std::fill(m_enabledChannels.begin(), m_enabledChannels.end(), true);
+    initData();
     m_robots.addRobots();
+    std::fill(m_enabledChannels.begin(), m_enabledChannels.end(), true);
+    auto list = juce::MidiInput::getAvailableDevices();
+    m_midiInput = juce::MidiInput::openDevice(list[0].identifier, this);
+    if (!m_midiInput) {
+        DBG("Cannot open MIDI device");
+    } else {
+        m_midiInput->start();
+    }
 }
 
 AudioPluginAudioProcessor::~AudioPluginAudioProcessor()
 {
     m_robots.removeRobots();
+}
+
+void AudioPluginAudioProcessor::initData() {
+    for (int i=0; i<MAX_ROBOTS; ++i) {
+        ValueTree node {kRobotList[i]};
+        m_data.appendChild(node, nullptr);
+    }
 }
 
 //==============================================================================
@@ -132,6 +147,8 @@ void AudioPluginAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 {
     juce::ignoreUnused (midiMessages);
 
+    buffer.clear();
+
     juce::ScopedNoDenormals noDenormals;
     auto totalNumInputChannels  = getTotalNumInputChannels();
     auto totalNumOutputChannels = getTotalNumOutputChannels();
@@ -144,19 +161,6 @@ void AudioPluginAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     // this code if your algorithm always overwrites all the output channels.
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
         buffer.clear (i, 0, buffer.getNumSamples());
-
-    // This is the place where you'd normally do the guts of your plugin's
-    // audio processing...
-    // Make sure to reset the state if your inner loop is processing
-    // the samples and the outer loop is handling the channels.
-    // Alternatively, you can process the samples with the channels
-    // interleaved by keeping the same state.
-    for (int channel = 0; channel < totalNumInputChannels; ++channel)
-    {
-        auto* channelData = buffer.getWritePointer (channel);
-        juce::ignoreUnused (channelData);
-        // ..do something to the data...
-    }
 }
 
 //==============================================================================
@@ -167,7 +171,7 @@ bool AudioPluginAudioProcessor::hasEditor() const
 
 juce::AudioProcessorEditor* AudioPluginAudioProcessor::createEditor()
 {
-    return new AudioPluginAudioProcessorEditor (*this);
+    return new AudioPluginAudioProcessorEditor (*this, m_robots, m_data);;
 }
 
 //==============================================================================
@@ -176,14 +180,43 @@ void AudioPluginAudioProcessor::getStateInformation (juce::MemoryBlock& destData
     // You should use this method to store your parameters in the memory block.
     // You could do that either as raw data, or use the XML or ValueTree classes
     // as intermediaries to make it easy to save and load complex data.
-    juce::ignoreUnused (destData);
+
+    m_robots.disconnectAll();
+
+    for (int i=0; i<MAX_ROBOTS; ++i) {
+        m_data.getChild(i).copyPropertiesFrom(m_robots[(size_t) i]->getNode(), nullptr);
+    }
+//
+//    size_t i = 0;
+//    DBG(m_robots[i]->getName() << " " << m_robots[i]->getMidiChannel() << " "
+//                               << m_robots[i]->getHost() << " " << m_robots[i]->getPort() << " " << (int)m_robots[i]->isEnabled());
+//    DBG((int)m_data.getChild(0)[MidiChannel] << "\n");
+
+    copyXmlToBinary(*m_data.createXml(), destData);
 }
 
 void AudioPluginAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
     // You should use this method to restore your parameters from this memory block,
     // whose contents will have been created by the getStateInformation() call.
-    juce::ignoreUnused (data, sizeInBytes);
+    auto xml = getXmlFromBinary(data, sizeInBytes);
+    if (xml) {
+//        DBG(xml->getTagName());
+        if (xml->hasTagName(m_data.getType())) {
+            m_data = ValueTree::fromXml(*xml);
+            for (size_t i=0; i<MAX_ROBOTS; ++i) {
+                auto node = m_data.getChild((int)i);
+                m_robots[i]->setName(node[Name]);
+                m_robots[i]->setPort(node[Port]);
+                m_robots[i]->setMidiChannel(node[MidiChannel]);
+                m_robots[i]->setHost(node[Host]);
+                m_robots[i]->setEnabled(node[Enabled]);
+                m_robots[i]->setId(node[Id]);
+//                DBG(m_robots[i]->getName() << " " << m_robots[i]->getMidiChannel() << " "
+//                << m_robots[i]->getHost() << " " << m_robots[i]->getPort() << " " << (int)m_robots[i]->isEnabled());
+            }
+        }
+    }
 }
 
 //==============================================================================
@@ -196,7 +229,7 @@ juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 //==============================================================================
 void AudioPluginAudioProcessor::updateChannelStatus() {
     std::fill(m_enabledChannels.begin(), m_enabledChannels.end(), true);
-    for (auto node: m_robots.rootData) {
+    for (auto node: m_data) {
         int ch = node[MidiChannel];
         enableChannel(ch, false);
     }
@@ -212,4 +245,9 @@ int AudioPluginAudioProcessor::getAvailableChannel() {
             return (int)i;
     }
     return 0;
+}
+
+void AudioPluginAudioProcessor::handleIncomingMidiMessage(MidiInput *source, const MidiMessage &message) {
+    juce::ignoreUnused(source);
+    m_robots.send(message);
 }

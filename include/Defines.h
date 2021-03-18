@@ -11,7 +11,6 @@
 #define DEFAULT_PORT 7001
 #define MAX_ROBOTS 5
 #define MAX_MIDI_CHANNELS 17
-#define INVALID_NAME "Untitled"
 
 const int iComponentWidth = 440;
 const int iCompHeight = 100;

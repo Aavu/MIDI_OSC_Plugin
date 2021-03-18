@@ -6,21 +6,20 @@
 #include "PluginEditor.h"
 
 //==============================================================================
-AudioPluginAudioProcessorEditor::AudioPluginAudioProcessorEditor (AudioPluginAudioProcessor& p)
-        : AudioProcessorEditor (&p), m_processor (p), m_robots(p.getRobots())
+AudioPluginAudioProcessorEditor::AudioPluginAudioProcessorEditor (AudioPluginAudioProcessor& p, Robots& robots, const ValueTree& data)
+        : AudioProcessorEditor (&p), m_processor (p), m_data(data), m_robots(robots)
 {
     setSize(iComponentWidth, iCompHeight * MAX_ROBOTS);
-    m_robots.rootData.addListener(this);
-    for (auto node: m_robots.rootData) {
-        int id = node[Id];
-        m_robotUi[(size_t)id] = std::make_unique<RobotComponent>(node, *m_robots.at((size_t)id));
-        addAndMakeVisible(*m_robotUi[(size_t)id]);
+    for (size_t id=0; id<MAX_ROBOTS; ++id) {
+        m_robotUi[id] = std::make_unique<RobotComponent>(*m_robots[id]);
+        addAndMakeVisible(*m_robotUi[id]);
     }
+    m_data.addListener(this);
 }
 
 AudioPluginAudioProcessorEditor::~AudioPluginAudioProcessorEditor()
 {
-    m_robots.rootData.removeListener(this);
+    m_data.removeListener(this);
 }
 
 //==============================================================================
@@ -36,10 +35,6 @@ void AudioPluginAudioProcessorEditor::resized()
     // subcomponents in your editor..
 }
 
-void AudioPluginAudioProcessorEditor::buttonClicked(Button *btn) {
-
-}
-
 void AudioPluginAudioProcessorEditor::updateChannelComboBox() {
     auto& channels = m_processor.getEnabledChannels();
     for (auto& ui: m_robotUi) {
@@ -49,17 +44,20 @@ void AudioPluginAudioProcessorEditor::updateChannelComboBox() {
 }
 
 void AudioPluginAudioProcessorEditor::valueTreePropertyChanged(ValueTree &treeWhosePropertyHasChanged, const Identifier &property) {
+    int id = treeWhosePropertyHasChanged[Id];
     if (property == MidiChannel) {
+        auto ch = (int)treeWhosePropertyHasChanged[MidiChannel] + 1;
+        m_robotUi[(size_t) id]->getComboBox().setSelectedId(ch, dontSendNotification);
         m_processor.updateChannelStatus();
         updateChannelComboBox();
     }
-}
 
-void AudioPluginAudioProcessorEditor::valueTreeChildAdded(ValueTree &/*parentTree*/, ValueTree &childWhichHasBeenAdded) {
+    if (property == Enabled) {
+        bool enabled = treeWhosePropertyHasChanged[Enabled];
+        m_robotUi[(size_t)id]->setUiEnabled(enabled);
+    }
 
-}
-
-void AudioPluginAudioProcessorEditor::valueTreeChildRemoved(ValueTree &parentTree, ValueTree &childWhichHasBeenRemoved,
-                                                            int indexFromWhichChildWasRemoved) {
-
+    for (auto& ui: m_robotUi) {
+        ui->updateUi();
+    }
 }

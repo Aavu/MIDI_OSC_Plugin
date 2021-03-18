@@ -4,13 +4,11 @@
 
 #include "RobotComponent.h"
 
-RobotComponent::RobotComponent(ValueTree& data,
-                               Robot& robot,
+RobotComponent::RobotComponent(Robot& robot,
                                int padding) :
-                               m_data(data),
                                m_robot(robot),
-                               m_nameChSection(*this, m_data, padding),
-                               m_hostPortSection(*this, m_data, padding/2),
+                               m_nameChSection(*this, m_robot, padding),
+                               m_hostPortSection(*this, m_robot, padding/2),
                                m_deleteBtn("delete", DrawableButton::ImageFitted),
                                m_iPadding(padding)
 {
@@ -19,7 +17,8 @@ RobotComponent::RobotComponent(ValueTree& data,
     addAndMakeVisible(m_hostPortSection);
     initBtns();
 
-    setUiEnabled(m_data[Enabled]);
+    setUiEnabled(m_robot.isEnabled());
+    updateUi();
 }
 
 RobotComponent::~RobotComponent() {
@@ -28,13 +27,11 @@ RobotComponent::~RobotComponent() {
 
 void RobotComponent::paint(Graphics &g) {
     g.fillAll(getLookAndFeel().findColour(juce::ResizableWindow::backgroundColourId));
-    if (m_data[Enabled])
-        g.setColour(Colours::orange);
-    else
-        g.setColour (juce::Colours::grey);
+    g.setColour(m_borderColor);
 
     auto centralArea = getLocalBounds().toFloat().reduced((float)m_iPadding/2);
     g.drawRoundedRectangle (centralArea, 5.0f, 2.0f);
+//    m_deleteBtn.setToggleState(m_robot.isEnabled(), dontSendNotification);
 }
 
 void RobotComponent::resized() {
@@ -43,7 +40,7 @@ void RobotComponent::resized() {
     m_nameChSection.setBounds(area.removeFromLeft(m_nameChSection.getWidth()).reduced(0, m_iPadding));
     m_hostPortSection.setBounds(area.removeFromLeft(m_hostPortSection.getWidth()).reduced(0, m_iPadding));
     m_deleteBtn.setBounds(area.removeFromLeft(iPowerBtnWidth).reduced(m_iPadding));
-    setTopLeftPosition(0, (int)m_data[Id]*iCompHeight);
+    setTopLeftPosition(0, (int)m_robot.getId()*iCompHeight);
 }
 
 void RobotComponent::buttonClicked(Button *btn) {
@@ -52,23 +49,34 @@ void RobotComponent::buttonClicked(Button *btn) {
     }
 
     if (btn == &m_deleteBtn) {
-        m_data.setProperty(Enabled, btn->getToggleState(), nullptr);
-        DBG("Enabled :" << (int)m_data[Enabled]);
-        setUiEnabled(m_data[Enabled]);
-        repaint();
+        auto on = btn->getToggleState();
+        m_robot.setEnabled(on);
+        if (!on) {
+            m_robot.disconnect();
+        }
+        setUiEnabled(on);
     }
 }
 
 void RobotComponent::comboBoxChanged(ComboBox *comboBoxThatHasChanged) {
     if (comboBoxThatHasChanged == &m_nameChSection.getComboBox()) {
         int ch = comboBoxThatHasChanged->getSelectedItemIndex();
-        m_data.setProperty(MidiChannel, ch, nullptr);
+        m_robot.setMidiChannel(ch);
     }
 }
 
+void RobotComponent::updateUi() {
+    m_nameChSection.updateUi();
+    m_hostPortSection.updateUi();
+    m_deleteBtn.setToggleState(m_robot.isEnabled(), dontSendNotification);
+    repaint();
+}
+
 void RobotComponent::setUiEnabled(bool enable) {
+    m_borderColor = enable ? Colours::orange : Colours::grey;
     m_nameChSection.setEnabled(enable);
     m_hostPortSection.setEnabled(enable);
+    repaint();
 }
 
 void RobotComponent::initBtns() {
@@ -89,17 +97,17 @@ void RobotComponent::initBtns() {
 
 void RobotComponent::labelTextChanged(Label *labelThatHasChanged) {
     if (labelThatHasChanged == m_hostPortSection.getHostTxt()) {
-        m_data.setProperty(Host, labelThatHasChanged->getText(), nullptr);
+        m_robot.setHost(labelThatHasChanged->getText());
     } else if (labelThatHasChanged == m_hostPortSection.getPortTxt()) {
-        m_data.setProperty(Port, labelThatHasChanged->getText().getIntValue(), nullptr);
+        m_robot.setPort(labelThatHasChanged->getText().getIntValue());
     }
 }
 
 /******************* Name Channel Section Component *******************/
-RobotComponent::NameChSection::NameChSection(Component &p, ValueTree &data, int padding) : m_parent(p), m_data(data), m_iPadding(padding) {
+RobotComponent::NameChSection::NameChSection(Component &p, Robot& robot, int padding) : m_parent(p), m_robot(robot), m_iPadding(padding) {
     setSize(120, iCompHeight);
     addAndMakeVisible(m_nameLabel);
-    m_nameLabel.setText(data[Name], dontSendNotification);
+    m_nameLabel.setText(m_robot.getName(), dontSendNotification);
     m_nameLabel.setFont(Font(24, Font::bold));
     m_nameLabel.setJustificationType(Justification::centred);
 
@@ -117,7 +125,7 @@ RobotComponent::NameChSection::NameChSection(Component &p, ValueTree &data, int 
 
     m_cbChannel.addListener(dynamic_cast<ComboBox::Listener *>(&m_parent));
     m_cbChannel.addItemList(ch, 1);
-    m_cbChannel.setSelectedId((int)m_data[MidiChannel] + 1);
+    m_cbChannel.setSelectedId(m_robot.getMidiChannel() + 1);
 }
 
 RobotComponent::NameChSection::~NameChSection() {
@@ -134,24 +142,27 @@ void RobotComponent::NameChSection::resized() {
     m_cbChannel.setBounds(area.removeFromLeft(iChCbWidth).reduced(m_iPadding));
 }
 
+void RobotComponent::NameChSection::updateUi() {
+    m_nameLabel.setText(m_robot.getName(), dontSendNotification);
+    m_cbChannel.setSelectedId(m_robot.getMidiChannel() + 1, dontSendNotification);
+}
+
 /****************** HostPortSection Component ******************/
 RobotComponent::HostPortSection::HostPortSection(Component &p,
-                                                 ValueTree &data,
+                                                 Robot& robot,
                                                  int padding) :
                                                  m_parent(p),
-                                                 m_data(data),
+                                                 m_robot(robot),
                                                  m_iPadding(padding) {
     setSize(256, iCompHeight);
     addAndMakeVisible(m_hostTxt);
-    m_hostTxt.setName(Host.toString());
-    m_hostTxt.setText(data[Host], dontSendNotification);
+    m_hostTxt.setText(m_robot.getHost(), dontSendNotification);
     m_hostTxt.setEditable(true);
     m_hostTxt.setColour(Label::backgroundColourId, Colours::darkgrey);
     m_hostTxt.addListener(dynamic_cast<Label::Listener *>(&m_parent));
 
     addAndMakeVisible(m_portTxt);
-    m_portTxt.setName(Port.toString());
-    m_portTxt.setText(data[Port], dontSendNotification);
+    m_portTxt.setText(String(m_robot.getPort()), dontSendNotification);
     m_portTxt.setEditable(true);
     m_portTxt.setColour(Label::backgroundColourId, Colours::darkgrey);
     m_portTxt.addListener(dynamic_cast<Label::Listener *>(&m_parent));
@@ -178,12 +189,17 @@ RobotComponent::HostPortSection::~HostPortSection() {
 
 void RobotComponent::HostPortSection::setEnabled(bool enable) {
     Component::setEnabled(enable);
-    repaint();
+}
+
+void RobotComponent::HostPortSection::updateUi() {
+    m_hostTxt.setText(m_robot.getHost(), dontSendNotification);
+    m_portTxt.setText(String(m_robot.getPort()), dontSendNotification);
+    updateBtnUi();
 }
 
 void RobotComponent::HostPortSection::updateBtnUi() {
-    bool stat = m_data[ConnectionStatus];
-    auto color = m_data[Enabled] ? (stat ? Colours::red : Colours::grey) : Colours::darkgrey;
+    bool stat = m_robot.isConnected();
+    auto color = m_robot.isEnabled() ? (stat ? Colours::red : Colours::grey) : Colours::darkgrey;
     m_connectBtn.setColour(TextButton::buttonColourId, color);
     String btnText = stat ? "Disconnect" : "Connect";
     m_connectBtn.setButtonText(btnText);
@@ -192,9 +208,7 @@ void RobotComponent::HostPortSection::updateBtnUi() {
 void RobotComponent::HostPortSection::paint(Graphics &g) {
     g.setColour (juce::Colours::grey);
     g.drawVerticalLine(0, 0, (float)getHeight());
-
     updateBtnUi();
-
 }
 
 void RobotComponent::HostPortSection::resized() {

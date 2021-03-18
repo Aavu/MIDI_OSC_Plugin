@@ -12,83 +12,77 @@
 
 using namespace  Identifiers;
 
-class Robot: public ValueTree::Listener {
+class Robot {
 public:
-    Robot(int id, int midiChannel, const String& host = DEFAULT_HOST, int port = DEFAULT_PORT, const String &name = INVALID_NAME);
-    ~Robot() override;
+    explicit Robot(int id, const ValueTree& data);
+    ~Robot();
 
-    [[nodiscard]] bool isEnabled() const {
-        return m_node[Enabled];
-    }
-    void setEnabled(bool enable) {
-        m_node.setProperty(Enabled, enable, nullptr);
-    }
+    const ValueTree& getNode() { return m_node; }
+
+    void setName(const String& name) { m_node.setProperty(Name, name, nullptr); }
+    [[nodiscard]] String getName() const { return m_node[Name]; }
+
+    [[nodiscard]] bool isEnabled() const { return m_node[Enabled]; }
+    void setEnabled(bool enable) { m_node.setProperty(Enabled, enable, nullptr); }
 
     int connect();
     int disconnect();
-    [[nodiscard]] bool isConnected() const {
-        return m_node[ConnectionStatus];
-    }
+    [[nodiscard]] bool isConnected() const { return m_node[ConnectionStatus]; }
 
-    [[nodiscard]] int getMidiChannel() const {
-        return m_node[MidiChannel];
-    }
-    void setMidiChannel(int iMidiChannel) {
-        m_node.setProperty(MidiChannel, iMidiChannel, nullptr);
-    }
+    [[nodiscard]] int getMidiChannel() const { return m_node[MidiChannel]; }
+    void setMidiChannel(int iMidiChannel) { m_node.setProperty(MidiChannel, iMidiChannel, nullptr); }
 
-    [[nodiscard]] int getId() const {
-        return m_node[Id];
-    }
-    void setId(int id) {
-        m_node.setProperty(Id, id, nullptr);
-    }
+    [[nodiscard]] int getId() const { return m_node[Id]; }
+    void setId(int id) { m_node.setProperty(Id, id, nullptr); }
 
-    [[nodiscard]] String getHost() const {
-        return m_node[Host];
-    }
-    void setHost(const String& host) {
-        m_node.setProperty(Host, host, nullptr);
-    }
+    [[nodiscard]] String getHost() const { return m_node[Host]; }
+    void setHost(const String& host) { m_node.setProperty(Host, host, nullptr); }
 
-    [[nodiscard]] int getPort() const {
-        return m_node[Port];
-    }
-    void setPort(int port) {
-        m_node.setProperty(Port, port, nullptr);
-    }
+    [[nodiscard]] int getPort() const { return m_node[Port]; }
+    void setPort(int port) { m_node.setProperty(Port, port, nullptr); }
 
     void send(const MidiMessage &msg);
     void toggleConnection();
 
-public:
-    ValueTree m_node;
-
 private:
+    ValueTree m_node;
     OSCSender m_sender;
 
 };
 
-class Robots: public ValueTree::Listener {
+class Robots {
 public:
-    Robots();
+    using iterator = std::array<std::shared_ptr<Robot>, MAX_ROBOTS>::iterator;
+    explicit Robots(const ValueTree& data);
     ~Robots();
-
-    [[nodiscard]] size_t getNumRobots() const { return (size_t) rootData.getNumChildren(); }
 
     void addRobots();
     void removeRobots();
 
-    std::shared_ptr<Robot> at(size_t id) { return m_robots[id]; }
+    void addRobot(int id, const ValueTree& node);
+    void removeRobot(size_t id);
 
-    int getAvailableChannel();
+    void disconnectAll();
 
-public:
-    ValueTree rootData {"Robots"};
-    std::array<bool, MAX_MIDI_CHANNELS> enabledChannels {};
+    void send(const MidiMessage& msg);
+
+    std::shared_ptr<Robot>operator[](size_t id) { return m_robots[id]; }
+
+    iterator begin() {
+        return m_robots.begin();
+    }
+
+    iterator end() {
+        return m_robots.end();
+    }
+
+    [[nodiscard]] size_t size() const {
+        return m_robots.size();
+    }
 
 private:
+    ValueTree m_rootData;
     std::array<std::shared_ptr<Robot>, MAX_ROBOTS> m_robots;
-    static inline std::array<int, MAX_ROBOTS> m_chMap;
+    static inline std::array<size_t, MAX_ROBOTS> m_chMap;
 };
 #endif //MIDI_OSC_ROBOT_H

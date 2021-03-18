@@ -16,12 +16,13 @@ class RobotComponent :  public Component,
                         public juce::ComboBox::Listener
 {
 public:
-    explicit RobotComponent(ValueTree& data, Robot& robot, int padding = 8);
+    explicit RobotComponent(Robot& robot, int padding = 8);
     ~RobotComponent() override;
 
     void paint(Graphics &g) override;
     void resized() override;
 
+    void updateUi();
     void setUiEnabled(bool enable);
 
     [[nodiscard]] ComboBox& getComboBox() { return m_nameChSection.getComboBox(); }
@@ -33,22 +34,24 @@ private:
     void labelTextChanged (Label* labelThatHasChanged) override;
 
 private:
-    ValueTree m_data;
     Robot& m_robot;
 
     class NameChSection: public Component {
     public:
-        explicit NameChSection(Component& p, ValueTree& data, int padding);
+        explicit NameChSection(Component& p, Robot& robot, int padding);
         ~NameChSection() override;
 //        void paint(Graphics& g) override {
 //            g.fillAll(Colours::black);
 //        }
         void resized() override;
+
+        void updateUi();
+
         [[nodiscard]] ComboBox& getComboBox() { return m_cbChannel; }
 
     private:
         Component& m_parent;
-        ValueTree& m_data;
+        Robot& m_robot;
 
         Label m_nameLabel;
         Label m_chLabel;
@@ -59,12 +62,13 @@ private:
 
     class HostPortSection: public Component {
     public:
-        explicit HostPortSection(Component& p, ValueTree& data, int padding);
+        explicit HostPortSection(Component& p, Robot& robot, int padding);
         ~HostPortSection() override;
         void setEnabled(bool enable);
         void paint(Graphics& g) override;
         void resized() override;
 
+        void updateUi();
         void updateBtnUi();
 
         [[nodiscard]] const Label* getHostTxt() const { return &m_hostTxt; }
@@ -73,7 +77,7 @@ private:
 
     private:
         Component& m_parent;
-        ValueTree& m_data;
+        Robot& m_robot;
 
         Label m_hostTxt;
         Label m_portTxt;
@@ -89,6 +93,8 @@ private:
 
     DrawableButton m_deleteBtn;
     int m_iPadding;
+
+    Colour m_borderColor = Colours::grey;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(RobotComponent)
 };
