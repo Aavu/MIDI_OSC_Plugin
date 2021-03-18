@@ -46,7 +46,7 @@ int Robot::disconnect() {
 }
 
 void Robot::send(const MidiMessage &msg) {
-    if (!m_node[ConnectionStatus])
+    if (!isEnabled() || !isConnected())
         return;
 
     using namespace AddrPattern;
