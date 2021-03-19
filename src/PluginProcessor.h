@@ -62,5 +62,8 @@ private:
     void initData();
     void handleIncomingMidiMessage (MidiInput* source, const MidiMessage& message) override;
 
+    std::atomic<bool> m_bDummyUi;
+    std::atomic<bool> m_bCanUseStateInfo;
+
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (AudioPluginAudioProcessor)
 };

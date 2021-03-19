@@ -12,6 +12,9 @@
 #define MAX_ROBOTS 5
 #define MAX_MIDI_CHANNELS 17
 
+static std::atomic<int> iInstanceRefCount = 0;
+static size_t ulNumRobots = MAX_ROBOTS;
+
 const int iComponentWidth = 440;
 const int iCompHeight = 100;
 

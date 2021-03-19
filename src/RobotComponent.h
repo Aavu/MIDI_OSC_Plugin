@@ -40,9 +40,7 @@ private:
     public:
         explicit NameChSection(Component& p, Robot& robot, int padding);
         ~NameChSection() override;
-//        void paint(Graphics& g) override {
-//            g.fillAll(Colours::black);
-//        }
+        void paint(Graphics& g) override;
         void resized() override;
 
         void updateUi();
@@ -64,7 +62,6 @@ private:
     public:
         explicit HostPortSection(Component& p, Robot& robot, int padding);
         ~HostPortSection() override;
-        void setEnabled(bool enable);
         void paint(Graphics& g) override;
         void resized() override;
 

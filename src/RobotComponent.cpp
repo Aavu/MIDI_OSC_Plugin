@@ -18,7 +18,6 @@ RobotComponent::RobotComponent(Robot& robot,
     initBtns();
 
     setUiEnabled(m_robot.isEnabled());
-    updateUi();
 }
 
 RobotComponent::~RobotComponent() {
@@ -27,11 +26,12 @@ RobotComponent::~RobotComponent() {
 
 void RobotComponent::paint(Graphics &g) {
     g.fillAll(getLookAndFeel().findColour(juce::ResizableWindow::backgroundColourId));
+    auto enabled = m_robot.isEnabled();
+    m_borderColor = enabled ? Colours::orange : Colours::grey;
     g.setColour(m_borderColor);
 
     auto centralArea = getLocalBounds().toFloat().reduced((float)m_iPadding/2);
     g.drawRoundedRectangle (centralArea, 5.0f, 2.0f);
-//    m_deleteBtn.setToggleState(m_robot.isEnabled(), dontSendNotification);
 }
 
 void RobotComponent::resized() {
@@ -66,14 +66,15 @@ void RobotComponent::comboBoxChanged(ComboBox *comboBoxThatHasChanged) {
 }
 
 void RobotComponent::updateUi() {
+    bool enabled = m_robot.isEnabled();
+    setUiEnabled(enabled);
     m_nameChSection.updateUi();
     m_hostPortSection.updateUi();
-    m_deleteBtn.setToggleState(m_robot.isEnabled(), dontSendNotification);
     repaint();
 }
 
 void RobotComponent::setUiEnabled(bool enable) {
-    m_borderColor = enable ? Colours::orange : Colours::grey;
+    m_deleteBtn.setToggleState(enable, dontSendNotification);
     m_nameChSection.setEnabled(enable);
     m_hostPortSection.setEnabled(enable);
     repaint();
@@ -132,6 +133,9 @@ RobotComponent::NameChSection::~NameChSection() {
     m_cbChannel.removeListener(dynamic_cast<ComboBox::Listener *>(&m_parent));
 }
 
+void RobotComponent::NameChSection::paint(Graphics& g) {
+}
+
 void RobotComponent::NameChSection::resized() {
     int iChLabelWidth = 28;
     int iChCbWidth = 80;
@@ -143,7 +147,6 @@ void RobotComponent::NameChSection::resized() {
 }
 
 void RobotComponent::NameChSection::updateUi() {
-    m_nameLabel.setText(m_robot.getName(), dontSendNotification);
     m_cbChannel.setSelectedId(m_robot.getMidiChannel() + 1, dontSendNotification);
 }
 
@@ -178,6 +181,7 @@ RobotComponent::HostPortSection::HostPortSection(Component &p,
     m_portLabel.setJustificationType(Justification::right);
 
     addAndMakeVisible(m_connectBtn);
+    updateBtnUi();
     m_connectBtn.addListener(dynamic_cast<Button::Listener *>(&m_parent));
 }
 
@@ -187,11 +191,8 @@ RobotComponent::HostPortSection::~HostPortSection() {
     m_connectBtn.removeListener(dynamic_cast<Button::Listener *>(&m_parent));
 }
 
-void RobotComponent::HostPortSection::setEnabled(bool enable) {
-    Component::setEnabled(enable);
-}
-
 void RobotComponent::HostPortSection::updateUi() {
+//    DBG(m_robot.getHost() << " " << m_robot.getPort());
     m_hostTxt.setText(m_robot.getHost(), dontSendNotification);
     m_portTxt.setText(String(m_robot.getPort()), dontSendNotification);
     updateBtnUi();
@@ -201,8 +202,7 @@ void RobotComponent::HostPortSection::updateBtnUi() {
     bool stat = m_robot.isConnected();
     auto color = m_robot.isEnabled() ? (stat ? Colours::red : Colours::grey) : Colours::darkgrey;
     m_connectBtn.setColour(TextButton::buttonColourId, color);
-    String btnText = stat ? "Disconnect" : "Connect";
-    m_connectBtn.setButtonText(btnText);
+    m_connectBtn.setButtonText(stat ? "Disconnect" : "Connect");
 }
 
 void RobotComponent::HostPortSection::paint(Graphics &g) {

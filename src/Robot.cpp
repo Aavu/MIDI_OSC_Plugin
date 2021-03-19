@@ -4,7 +4,7 @@
 
 #include "Robot.h"
 
-Robot::Robot(int id, const ValueTree& data) : m_node(data) {
+Robot::Robot(int id, ValueTree data) : m_node(data) {
     setName(data.getType().toString());
     setId(id);
     setHost(DEFAULT_HOST);
@@ -78,7 +78,7 @@ void Robot::toggleConnection() {
 }
 
 /******************************************* Robots *******************************************/
-Robots::Robots(const ValueTree& data) : m_rootData(data) {
+Robots::Robots(ValueTree data) : m_rootData(data) {
 }
 
 Robots::~Robots() {
@@ -97,7 +97,7 @@ void Robots::removeRobots() {
     }
 }
 
-void Robots::addRobot(int id, const ValueTree& node) {
+void Robots::addRobot(int id, ValueTree node) {
     auto robot = std::make_shared<Robot>(id, node);
     m_robots[(size_t)id] = robot;
 }
@@ -105,6 +105,13 @@ void Robots::addRobot(int id, const ValueTree& node) {
 void Robots::removeRobot(size_t id) {
     m_robots[id]->disconnect();
     m_robots[id] = nullptr;
+}
+
+void Robots::setData(ValueTree data) {
+    m_rootData = data;
+    for (size_t id=0; id<MAX_ROBOTS; ++id) {
+        m_robots[id]->setData(data.getChild((int)id));
+    }
 }
 
 void Robots::disconnectAll() {
@@ -116,7 +123,7 @@ void Robots::disconnectAll() {
 void Robots::send(const MidiMessage &msg) {
     auto ch = (size_t)msg.getChannel();
     auto id = m_chMap[ch];
-    if (id < MAX_ROBOTS) {
+    if (id < ulNumRobots) {
         auto robot = m_robots[id];
         if (robot->isEnabled()) {
             robot->send(msg);

@@ -14,10 +14,11 @@ using namespace  Identifiers;
 
 class Robot {
 public:
-    explicit Robot(int id, const ValueTree& data);
+    explicit Robot(int id, ValueTree data);
     ~Robot();
 
-    const ValueTree& getNode() { return m_node; }
+    void setData(ValueTree data) { m_node = data; }
+    ValueTree getNode() { return m_node; }
 
     void setName(const String& name) { m_node.setProperty(Name, name, nullptr); }
     [[nodiscard]] String getName() const { return m_node[Name]; }
@@ -44,6 +45,28 @@ public:
     void send(const MidiMessage &msg);
     void toggleConnection();
 
+    friend std::ostream& operator<<(std::ostream& os, const Robot& r) {
+        os  << "Id: " << r.getId()
+            << "\t Port: " << r.getPort()
+            << "\t Host: " << r.getHost()
+            << "\t Ch: " << r.getMidiChannel()
+            << "\t connected: " << r.isConnected()
+            << "\t enabled: " << r.isEnabled()
+            << "\t Name: " << r.getName();
+        return os;
+    }
+
+    friend String& operator<<(String& os, const Robot& r) {
+        os  << "Id: " << r.getId()
+            << "\t Port: " << r.getPort()
+            << "\t Host: " << r.getHost()
+            << "\t Ch: " << r.getMidiChannel()
+            << "\t connected: " << (int)r.isConnected()
+            << "\t enabled: " << (int)r.isEnabled()
+            << "\t Name: " << r.getName();
+        return os;
+    }
+
 private:
     ValueTree m_node;
     OSCSender m_sender;
@@ -53,13 +76,15 @@ private:
 class Robots {
 public:
     using iterator = std::array<std::shared_ptr<Robot>, MAX_ROBOTS>::iterator;
-    explicit Robots(const ValueTree& data);
+    explicit Robots(ValueTree data);
     ~Robots();
 
     void addRobots();
     void removeRobots();
 
-    void addRobot(int id, const ValueTree& node);
+    void setData(ValueTree data);
+
+    void addRobot(int id, ValueTree node);
     void removeRobot(size_t id);
 
     void disconnectAll();
@@ -78,6 +103,20 @@ public:
 
     [[nodiscard]] size_t size() const {
         return m_robots.size();
+    }
+
+    friend std::ostream& operator<<(std::ostream& os, Robots& r) {
+        for (const auto& i : r) {
+            os << *i << std::endl;
+        }
+        return os;
+    }
+
+    friend String& operator<<(String& os, Robots& r) {
+        for (const auto& i : r) {
+            os << *i << "\n";
+        }
+        return os;
     }
 
 private:

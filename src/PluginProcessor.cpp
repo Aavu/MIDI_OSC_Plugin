@@ -13,8 +13,16 @@ AudioPluginAudioProcessor::AudioPluginAudioProcessor()
 #endif
                                   .withOutput ("Output", juce::AudioChannelSet::stereo(), true)
 #endif
-), m_data("MidiOscPlugin"), m_robots(m_data)
+), m_data("MidiOscPlugin"), m_robots(m_data), m_bDummyUi(false), m_bCanUseStateInfo(true)
 {
+    if (iInstanceRefCount > 0) {
+        DBG("Already running");
+        ulNumRobots = 0;
+        m_bDummyUi = true;
+        m_bCanUseStateInfo = false;
+        return;
+    }
+
     initData();
     m_robots.addRobots();
     std::fill(m_enabledChannels.begin(), m_enabledChannels.end(), true);
@@ -25,11 +33,15 @@ AudioPluginAudioProcessor::AudioPluginAudioProcessor()
     } else {
         m_midiInput->start();
     }
+    iInstanceRefCount++;
 }
 
 AudioPluginAudioProcessor::~AudioPluginAudioProcessor()
 {
-    m_robots.removeRobots();
+    if (iInstanceRefCount < 1) {
+        m_robots.removeRobots();
+    }
+    iInstanceRefCount--;
 }
 
 void AudioPluginAudioProcessor::initData() {
@@ -171,7 +183,7 @@ bool AudioPluginAudioProcessor::hasEditor() const
 
 juce::AudioProcessorEditor* AudioPluginAudioProcessor::createEditor()
 {
-    return new AudioPluginAudioProcessorEditor (*this, m_robots, m_data);;
+    return new AudioPluginAudioProcessorEditor (*this, m_robots, m_data, m_bDummyUi);
 }
 
 //==============================================================================
@@ -181,16 +193,11 @@ void AudioPluginAudioProcessor::getStateInformation (juce::MemoryBlock& destData
     // You could do that either as raw data, or use the XML or ValueTree classes
     // as intermediaries to make it easy to save and load complex data.
 
+    if (!m_bCanUseStateInfo)
+        return;
     m_robots.disconnectAll();
-
-    for (int i=0; i<MAX_ROBOTS; ++i) {
-        m_data.getChild(i).copyPropertiesFrom(m_robots[(size_t) i]->getNode(), nullptr);
-    }
-//
-//    size_t i = 0;
-//    DBG(m_robots[i]->getName() << " " << m_robots[i]->getMidiChannel() << " "
-//                               << m_robots[i]->getHost() << " " << m_robots[i]->getPort() << " " << (int)m_robots[i]->isEnabled());
-//    DBG((int)m_data.getChild(0)[MidiChannel] << "\n");
+//    DBG("Get state");
+//    DBG(m_robots);
 
     copyXmlToBinary(*m_data.createXml(), destData);
 }
@@ -199,21 +206,20 @@ void AudioPluginAudioProcessor::setStateInformation (const void* data, int sizeI
 {
     // You should use this method to restore your parameters from this memory block,
     // whose contents will have been created by the getStateInformation() call.
+    if (!m_bCanUseStateInfo)
+        return;
+
     auto xml = getXmlFromBinary(data, sizeInBytes);
     if (xml) {
-//        DBG(xml->getTagName());
         if (xml->hasTagName(m_data.getType())) {
-            m_data = ValueTree::fromXml(*xml);
-            for (size_t i=0; i<MAX_ROBOTS; ++i) {
-                auto node = m_data.getChild((int)i);
-                m_robots[i]->setName(node[Name]);
-                m_robots[i]->setPort(node[Port]);
-                m_robots[i]->setMidiChannel(node[MidiChannel]);
-                m_robots[i]->setHost(node[Host]);
-                m_robots[i]->setEnabled(node[Enabled]);
-                m_robots[i]->setId(node[Id]);
-//                DBG(m_robots[i]->getName() << " " << m_robots[i]->getMidiChannel() << " "
-//                << m_robots[i]->getHost() << " " << m_robots[i]->getPort() << " " << (int)m_robots[i]->isEnabled());
+            auto tree = ValueTree::fromXml(*xml);
+            m_robots.setData(tree); // First set the child tree before the parents to have the callback fired after the child is updated
+            m_data = tree; // Callback fired here
+            auto* editor = getActiveEditor();
+            if (editor) {
+                editor->repaint();
+//                DBG("Set state");
+//                DBG(m_robots);
             }
         }
     }

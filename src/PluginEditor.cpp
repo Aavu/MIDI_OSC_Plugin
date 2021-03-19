@@ -6,11 +6,13 @@
 #include "PluginEditor.h"
 
 //==============================================================================
-AudioPluginAudioProcessorEditor::AudioPluginAudioProcessorEditor (AudioPluginAudioProcessor& p, Robots& robots, const ValueTree& data)
+AudioPluginAudioProcessorEditor::AudioPluginAudioProcessorEditor (AudioPluginAudioProcessor& p, Robots& robots, ValueTree& data, bool isDummy)
         : AudioProcessorEditor (&p), m_processor (p), m_data(data), m_robots(robots)
 {
     setSize(iComponentWidth, iCompHeight * MAX_ROBOTS);
-    for (size_t id=0; id<MAX_ROBOTS; ++id) {
+    if (isDummy)
+        return;
+    for (size_t id=0; id<ulNumRobots; ++id) {
         m_robotUi[id] = std::make_unique<RobotComponent>(*m_robots[id]);
         addAndMakeVisible(*m_robotUi[id]);
     }
@@ -19,7 +21,6 @@ AudioPluginAudioProcessorEditor::AudioPluginAudioProcessorEditor (AudioPluginAud
 
 AudioPluginAudioProcessorEditor::~AudioPluginAudioProcessorEditor()
 {
-    m_data.removeListener(this);
 }
 
 //==============================================================================
@@ -56,8 +57,13 @@ void AudioPluginAudioProcessorEditor::valueTreePropertyChanged(ValueTree &treeWh
         bool enabled = treeWhosePropertyHasChanged[Enabled];
         m_robotUi[(size_t)id]->setUiEnabled(enabled);
     }
+}
 
+void AudioPluginAudioProcessorEditor::valueTreeRedirected(ValueTree &treeWhichHasBeenChanged) {
     for (auto& ui: m_robotUi) {
         ui->updateUi();
     }
+    m_processor.updateChannelStatus();
+    updateChannelComboBox();
+//    DBG("Value redirected :" << treeWhichHasBeenChanged.getType());
 }
