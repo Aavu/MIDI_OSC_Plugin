@@ -15,13 +15,15 @@ AudioPluginAudioProcessor::AudioPluginAudioProcessor()
 #endif
 ), m_data("MidiOscPlugin"), m_robots(m_data), m_bDummyUi(false), m_bCanUseStateInfo(true)
 {
-    if (iInstanceRefCount > 0) {
-        DBG("Already running");
+    if (MainProcessorInfo::ptr) {
+        DBG("Already running on " << MainProcessorInfo::properties.name);
         ulNumRobots = 0;
         m_bDummyUi = true;
         m_bCanUseStateInfo = false;
         return;
     }
+
+    MainProcessorInfo::ptr = this;
 
     initData();
     m_robots.addRobots();
@@ -33,15 +35,14 @@ AudioPluginAudioProcessor::AudioPluginAudioProcessor()
     } else {
         m_midiInput->start();
     }
-    iInstanceRefCount++;
 }
 
 AudioPluginAudioProcessor::~AudioPluginAudioProcessor()
 {
-    if (iInstanceRefCount < 1) {
+    if (MainProcessorInfo::ptr == this) {
         m_robots.removeRobots();
     }
-    iInstanceRefCount--;
+    MainProcessorInfo::ptr = nullptr;
 }
 
 void AudioPluginAudioProcessor::initData() {
@@ -256,4 +257,11 @@ int AudioPluginAudioProcessor::getAvailableChannel() {
 void AudioPluginAudioProcessor::handleIncomingMidiMessage(MidiInput *source, const MidiMessage &message) {
     juce::ignoreUnused(source);
     m_robots.send(message);
+}
+
+void AudioPluginAudioProcessor::updateTrackProperties(const AudioProcessor::TrackProperties &properties) {
+    AudioProcessor::updateTrackProperties(properties);
+    if (!MainProcessorInfo::ptr || MainProcessorInfo::ptr == this) {
+        MainProcessorInfo::properties = properties;
+    }
 }

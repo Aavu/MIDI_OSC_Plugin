@@ -19,6 +19,8 @@ public:
     void paint (juce::Graphics&) override;
     void resized() override;
 
+    void setMainProcessorTrackName(const String& name) { m_mainProcessorTrackName = name; DBG(m_mainProcessorTrackName); }
+
     void updateChannelComboBox();
 
 private:
@@ -28,6 +30,9 @@ private:
     ValueTree& m_data;
     Robots& m_robots;
     std::array<std::unique_ptr<RobotComponent>, MAX_ROBOTS> m_robotUi;
+
+    std::atomic<bool> m_bIsDummy;
+    String m_mainProcessorTrackName = "";
 
     void valueTreePropertyChanged (ValueTree& treeWhosePropertyHasChanged, const Identifier& property) override;
     void valueTreeRedirected (ValueTree& treeWhichHasBeenChanged) override;

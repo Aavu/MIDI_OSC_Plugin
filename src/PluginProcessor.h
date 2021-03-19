@@ -4,6 +4,7 @@
 #pragma once
 
 #include <juce_audio_processors/juce_audio_processors.h>
+#include "Defines.h"
 #include "Robot.h"
 
 //==============================================================================
@@ -64,6 +65,8 @@ private:
 
     std::atomic<bool> m_bDummyUi;
     std::atomic<bool> m_bCanUseStateInfo;
+
+    void updateTrackProperties (const TrackProperties& properties) override;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (AudioPluginAudioProcessor)
 };

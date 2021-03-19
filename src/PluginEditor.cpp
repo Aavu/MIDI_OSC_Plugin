@@ -7,11 +7,12 @@
 
 //==============================================================================
 AudioPluginAudioProcessorEditor::AudioPluginAudioProcessorEditor (AudioPluginAudioProcessor& p, Robots& robots, ValueTree& data, bool isDummy)
-        : AudioProcessorEditor (&p), m_processor (p), m_data(data), m_robots(robots)
+        : AudioProcessorEditor (&p), m_processor (p), m_data(data), m_robots(robots), m_bIsDummy(isDummy)
 {
     setSize(iComponentWidth, iCompHeight * MAX_ROBOTS);
-    if (isDummy)
+    if (m_bIsDummy)
         return;
+
     for (size_t id=0; id<ulNumRobots; ++id) {
         m_robotUi[id] = std::make_unique<RobotComponent>(*m_robots[id]);
         addAndMakeVisible(*m_robotUi[id]);
@@ -28,6 +29,16 @@ void AudioPluginAudioProcessorEditor::paint (juce::Graphics& g)
 {
     // (Our component is opaque, so we must completely fill the background with a solid colour)
     g.fillAll (getLookAndFeel().findColour (juce::ResizableWindow::backgroundColourId));
+    if (m_bIsDummy) {
+        g.setColour(Colours::white);
+        auto area = getLocalBounds();
+        String txt = "An instance is already open on track \"";
+        txt << MainProcessorInfo::properties.name << "\".";
+        g.setFont(18);
+        g.drawText( txt,area.removeFromTop(area.getWidth()/2).reduced(8), Justification::centredBottom);
+        g.drawText("Cannot create multiple instances of the plugin.",
+                   area.reduced(8), Justification::centredTop);
+    }
 }
 
 void AudioPluginAudioProcessorEditor::resized()

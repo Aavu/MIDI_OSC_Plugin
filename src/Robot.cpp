@@ -103,7 +103,6 @@ void Robots::addRobot(int id, ValueTree node) {
 }
 
 void Robots::removeRobot(size_t id) {
-    m_robots[id]->disconnect();
     m_robots[id] = nullptr;
 }
 

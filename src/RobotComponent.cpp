@@ -13,6 +13,10 @@ RobotComponent::RobotComponent(Robot& robot,
                                m_iPadding(padding)
 {
     setSize(iComponentWidth, iCompHeight);
+    if (MainProcessorInfo::properties.colour != Colours::transparentBlack) {
+        m_activeColor = MainProcessorInfo::properties.colour;
+    }
+
     addAndMakeVisible(m_nameChSection);
     addAndMakeVisible(m_hostPortSection);
     initBtns();
@@ -27,7 +31,7 @@ RobotComponent::~RobotComponent() {
 void RobotComponent::paint(Graphics &g) {
     g.fillAll(getLookAndFeel().findColour(juce::ResizableWindow::backgroundColourId));
     auto enabled = m_robot.isEnabled();
-    m_borderColor = enabled ? Colours::orange : Colours::grey;
+    m_borderColor = enabled ? m_activeColor : Colours::grey;
     g.setColour(m_borderColor);
 
     auto centralArea = getLocalBounds().toFloat().reduced((float)m_iPadding/2);

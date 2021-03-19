@@ -91,6 +91,7 @@ private:
     DrawableButton m_deleteBtn;
     int m_iPadding;
 
+    Colour m_activeColor = Colours::orange;
     Colour m_borderColor = Colours::grey;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(RobotComponent)
